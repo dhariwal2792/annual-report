@@ -42,6 +42,8 @@ OUTPUT = Path("company_list.json")
 DELAY  = 0.4   # between CH API calls
 
 WIKIPEDIA_INDICES = [
+    ("FTSE 100",      "https://en.wikipedia.org/wiki/FTSE_100_Index",      100),
+    ("FTSE 250",      "https://en.wikipedia.org/wiki/FTSE_250_Index",      250),
     ("FTSE SmallCap", "https://en.wikipedia.org/wiki/FTSE_SmallCap_Index", None),  # take top 150 by mcap
 ]
 
@@ -111,13 +113,16 @@ def scrape_ftse_wiki(url: str, label: str) -> list:
 # yfinance market cap fetch
 # ---------------------------------------------------------------------------
 def get_market_cap(ticker: str) -> int:
-    """Return market cap in GBP (or 0 on failure). Ticker should be LSE epic."""
+    """Return market cap in GBP (or 0 on failure). Retries on throttle."""
     yf_ticker = ticker.upper() + ".L"
-    try:
-        info = yf.Ticker(yf_ticker).info
-        return info.get("marketCap") or 0
-    except Exception:
-        return 0
+    for attempt in range(3):
+        try:
+            info = yf.Ticker(yf_ticker).info
+            return info.get("marketCap") or 0
+        except Exception:
+            if attempt < 2:
+                time.sleep(5 * (attempt + 1))  # 5s, 10s backoff
+    return 0
 
 
 # ---------------------------------------------------------------------------
@@ -233,10 +238,41 @@ def main():
         print(f"Loaded {len(companies)} existing companies from {OUTPUT}")
 
     # ================================================================
-    # PASS 1 — FTSE SmallCap: fetch market cap, sort, take top 150
+    # PASS 1 — FTSE 100 and FTSE 250 (all companies, no market cap needed)
+    # ================================================================
+    for label, url, _ in WIKIPEDIA_INDICES[:2]:
+        print(f"\n[{label}]")
+        wiki_entries = scrape_ftse_wiki(url, label)
+
+        resolved = 0
+        for wiki_name, ticker in wiki_entries:
+            if wiki_name.lower() in seen_names:
+                continue
+            time.sleep(DELAY)
+            cn, official_name = ch_search(s, wiki_name)
+            if cn and cn not in seen_numbers:
+                companies.append({
+                    "number": cn,
+                    "name":   official_name,
+                    "source": label,
+                    "ticker": ticker,
+                })
+                seen_numbers.add(cn)
+                seen_names.add(wiki_name.lower())
+                resolved += 1
+                print(f"  {official_name} ({cn})  [{ticker}]")
+            else:
+                seen_names.add(wiki_name.lower())
+                print(f"  [skipped/not found] {wiki_name}")
+
+        print(f"  Resolved {resolved}/{len(wiki_entries)}")
+        time.sleep(2)  # polite delay between Wikipedia pages
+
+    # ================================================================
+    # PASS 2 — FTSE SmallCap: fetch market cap, sort, take top 150
     # ================================================================
     print(f"\n[FTSE SmallCap — fetching market caps via yfinance]")
-    label, url, _ = WIKIPEDIA_INDICES[0]
+    label, url, _ = WIKIPEDIA_INDICES[2]
     wiki_entries = scrape_ftse_wiki(url, label)
 
     # Filter out companies already added from FTSE 100/250
@@ -253,7 +289,7 @@ def main():
         smallcap_with_mcap.append((name, ticker, mcap))
         status = f"£{mcap/1e6:.0f}M" if mcap else "n/a"
         print(f"  [{i}/{len(smallcap_entries)}] {name} ({ticker}.L)  mcap={status}")
-        time.sleep(0.2)  # yfinance is generous, small delay is fine
+        time.sleep(1)  # 1s between yfinance calls to avoid Yahoo throttling
 
     # Sort by market cap descending, take top SMALLCAP_TAKE
     smallcap_with_mcap.sort(key=lambda x: x[2], reverse=True)
