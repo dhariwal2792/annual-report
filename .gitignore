@@ -1,0 +1,8 @@
+annual_accounts/
+annual_accounts.zip
+index.json
+no_accounts.json
+company_list.json
+__pycache__/
+*.pyc
+.DS_Store
