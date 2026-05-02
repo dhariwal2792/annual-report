@@ -27,10 +27,14 @@ from typing import Optional
 import requests
 import yfinance as yf
 from bs4 import BeautifulSoup
+from dotenv import load_dotenv
+
+load_dotenv()
 
 API_KEY = os.environ.get("CH_API_KEY", "")
 if not API_KEY:
     print("Error: CH_API_KEY not set.")
+    print("  Add CH_API_KEY=your_key to a .env file in this directory.")
     sys.exit(1)
 
 BASE   = "https://api.company-information.service.gov.uk"

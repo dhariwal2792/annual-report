@@ -25,7 +25,7 @@ Downloads the latest annual accounts PDFs for the top 500 UK companies from Comp
 - Dependencies:
 
 ```bash
-pip3 install requests beautifulsoup4 yfinance
+pip3 install -r requirements.txt
 ```
 
 ---
@@ -40,11 +40,16 @@ pip3 install requests beautifulsoup4 yfinance
 
 ### 2. Set the API Key
 
+Copy `.env.example` to `.env` and add your key:
+
 ```bash
-export CH_API_KEY=your_api_key_here
+cp .env.example .env
 ```
 
-To make it permanent, add the line above to your `~/.zshrc` or `~/.bashrc`.
+Edit `.env`:
+```
+CH_API_KEY=your_api_key_here
+```
 
 ### 3. Verify the Key Works
 

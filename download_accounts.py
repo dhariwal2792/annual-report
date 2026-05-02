@@ -22,11 +22,14 @@ from pathlib import Path
 from typing import Optional
 
 import requests
+from dotenv import load_dotenv
+
+load_dotenv()
 
 API_KEY = os.environ.get("CH_API_KEY", "")
 if not API_KEY:
     print("Error: CH_API_KEY not set.")
-    print("  Get a free key at: https://developer.company-information.service.gov.uk/")
+    print("  Add CH_API_KEY=your_key to a .env file in this directory.")
     sys.exit(1)
 
 BASE    = "https://api.company-information.service.gov.uk"
